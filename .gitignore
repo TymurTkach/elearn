@@ -1,0 +1,12 @@
+/vendor/
+/uploads/
+/config.php
+/.env
+/.env.*
+/composer-setup.php
+/db-test.php
+/curl-test.php
+/make-hash.php
+/.DS_Store
+/Thumbs.db
+
