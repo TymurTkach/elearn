@@ -1,5 +1,5 @@
 <?php
-$host = '127.0.0.1';
+$host = '192.168.56.11';
 $db   = 'elearn';
 $user = 'db_user';
 $pass = 'change_me';
