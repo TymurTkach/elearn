@@ -1,5 +1,5 @@
 <?php
-//Prehľad výsledkov študenta
+// dashboard.php – prehľad výsledkov študenta
 
 $pdo = require __DIR__ . '/config.php';
 require __DIR__ . '/auth.php';
@@ -9,9 +9,11 @@ require_login();
 $userId = current_user_id();
 $userName = current_user_name() ?? 'Študent';
 
+// Получаем фильтры из GET параметров
 $filter_course_id = isset($_GET['course_id']) ? (int)$_GET['course_id'] : 0;
 $filter_lesson_id = isset($_GET['lesson_id']) ? (int)$_GET['lesson_id'] : 0;
 
+// Загружаем курсы для фильтра (только те, где есть результаты студента)
 $coursesStmt = $pdo->prepare("
     SELECT DISTINCT c.id, c.title
     FROM courses c
@@ -23,6 +25,7 @@ $coursesStmt = $pdo->prepare("
 $coursesStmt->execute(['uid' => $userId]);
 $allCourses = $coursesStmt->fetchAll(PDO::FETCH_ASSOC);
 
+// Загружаем уроки для фильтра (если выбран курс)
 $allLessons = [];
 if ($filter_course_id > 0) {
     $lessonsStmt = $pdo->prepare("
@@ -36,6 +39,7 @@ if ($filter_course_id > 0) {
     $allLessons = $lessonsStmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
+// Načítame výsledky s filtrami
 $whereConditions = ['r.user_id = :uid'];
 $params = ['uid' => $userId];
 
@@ -71,47 +75,6 @@ $stmt = $pdo->prepare($query);
 $stmt->execute($params);
 $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-require_once __DIR__ . '/gamification.php';
-
-$gamStats = null;
-try {
-    $uStmt = $pdo->prepare('
-        SELECT xp_total, level, streak_current, streak_best
-        FROM users WHERE id = :id LIMIT 1
-    ');
-    $uStmt->execute(['id' => $userId]);
-    $urow = $uStmt->fetch(PDO::FETCH_ASSOC);
-    if ($urow) {
-        $bStmt = $pdo->prepare('
-            SELECT badge_code, awarded_at
-            FROM user_badges
-            WHERE user_id = :uid
-            ORDER BY awarded_at DESC
-        ');
-        $bStmt->execute(['uid' => $userId]);
-        $badges = $bStmt->fetchAll(PDO::FETCH_ASSOC);
-        $xp = (int)$urow['xp_total'];
-        $level = max(1, (int)$urow['level']);
-        $xpCurrentLevelStart = ($level - 1) * 200;
-        $xpNextLevel = $level * 200;
-        $xpInLevel = max(0, $xp - $xpCurrentLevelStart);
-        $xpNeeded = max(1, $xpNextLevel - $xpCurrentLevelStart);
-        $levelProgressPct = (int)min(100, floor(($xpInLevel / $xpNeeded) * 100));
-
-        $gamStats = [
-            'xp' => (int)$urow['xp_total'],
-            'level' => (int)$urow['level'],
-            'streak' => (int)$urow['streak_current'],
-            'streak_best' => (int)$urow['streak_best'],
-            'xp_to_next' => max(0, $xpNextLevel - $xp),
-            'level_progress_pct' => $levelProgressPct,
-            'badges' => $badges,
-        ];
-    }
-} catch (PDOException $e) {
-    $gamStats = null;
-}
-
 function h(string $value): string {
     return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 }
@@ -121,11 +84,89 @@ function h(string $value): string {
 <head>
     <meta charset="UTF-8">
     <title>Moje výsledky – E-Learn</title>
-    <link rel="stylesheet" href="styles.css?v=3">
-    <script src="theme.js" defer></script>
+    <style>
+        body {
+            margin: 0;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: #0f172a;
+            color: #e5e7eb;
+        }
+        header {
+            background: #020617;
+            border-bottom: 1px solid #1e293b;
+            padding: 16px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .logo {
+            font-weight: 700;
+            font-size: 20px;
+        }
+        .logo span {
+            color: #38bdf8;
+        }
+        .user-info {
+            font-size: 14px;
+            color: #9ca3af;
+        }
+        main {
+            max-width: 960px;
+            margin: 32px auto 80px;
+            padding: 0 16px;
+        }
+        h1 {
+            font-size: 28px;
+            margin-bottom: 16px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #020617;
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid #1e293b;
+        }
+        th, td {
+            padding: 10px 14px;
+            font-size: 14px;
+        }
+        th {
+            text-align: left;
+            background: #020617;
+            border-bottom: 1px solid #1e293b;
+            color: #9ca3af;
+        }
+        tr:nth-child(even) td {
+            background: #020617;
+        }
+        tr:nth-child(odd) td {
+            background: #020617;
+        }
+        .score-good {
+            color: #22c55e;
+            font-weight: 600;
+        }
+        .score-bad {
+            color: #ef4444;
+            font-weight: 600;
+        }
+        .empty {
+            margin-top: 16px;
+            font-size: 14px;
+            color: #9ca3af;
+        }
+        a {
+            color: #38bdf8;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+    </style>
 </head>
 <body>
-<header class="page-header">
+<header>
     <div class="logo">E-<span>Learn</span></div>
     <div class="user-info">
         Prihlásený používateľ: <strong><?= h($userName) ?></strong>
@@ -137,105 +178,64 @@ function h(string $value): string {
     </div>
 </header>
 
-<main class="container">
+<main>
     <h1>Moje výsledky v testoch</h1>
 
-    <?php if ($gamStats !== null): ?>
-        <section class="gamification-card" aria-label="Postup a odznaky">
-            <div class="gamification-stats">
-                <div class="gamification-stat">
-                    <span class="gamification-stat-label">Úroveň</span>
-                    <span class="gamification-stat-value"><?= (int)$gamStats['level'] ?></span>
-                </div>
-                <div class="gamification-stat">
-                    <span class="gamification-stat-label">XP celkom</span>
-                    <span class="gamification-stat-value"><?= (int)$gamStats['xp'] ?></span>
-                </div>
-                <div class="gamification-stat">
-                    <span class="gamification-stat-label">Séria (dni)</span>
-                    <span class="gamification-stat-value"><?= (int)$gamStats['streak'] ?></span>
-                    <?php if ((int)$gamStats['streak_best'] > 0): ?>
-                        <span class="gamification-stat-hint">rekord <?= (int)$gamStats['streak_best'] ?></span>
-                    <?php endif; ?>
-                </div>
-            </div>
-            <div class="gamification-progress-wrap" aria-label="Postup do ďalšej úrovne">
-                <div class="gamification-progress-text">
-                    Do ďalšej úrovne: <?= (int)$gamStats['xp_to_next'] ?> XP
-                </div>
-                <div class="gamification-progress-bar">
-                    <span style="width: <?= (int)$gamStats['level_progress_pct'] ?>%"></span>
-                </div>
-            </div>
-            <?php if (!empty($gamStats['badges'])): ?>
-                <div class="gamification-badges">
-                    <h2 class="gamification-badges-title">Odznaky</h2>
-                    <ul class="gamification-badge-list">
-                        <?php foreach ($gamStats['badges'] as $b): ?>
-                            <li class="gamification-badge" title="<?= h($b['awarded_at']) ?>">
-                                <?= h(gamification_badge_label($b['badge_code'])) ?>
-                            </li>
-                        <?php endforeach; ?>
-                    </ul>
-                </div>
-            <?php else: ?>
-                <p class="gamification-empty">Zatiaľ nemáš žiadne odznaky — dokonči test alebo kódovú úlohu.</p>
-            <?php endif; ?>
-        </section>
-    <?php endif; ?>
-
+    <!-- Форма фильтров -->
     <?php if (!empty($allCourses)): ?>
-        <form method="get" class="form-filters">
-            <div class="form-grid">
-                <div>
-                    <label for="filter_course_id">Kurz</label>
-                    <select id="filter_course_id" name="course_id">
-                        <option value="0">Všetky kurzy</option>
-                        <?php foreach ($allCourses as $c): ?>
-                            <option value="<?= (int)$c['id'] ?>" <?= $filter_course_id === (int)$c['id'] ? 'selected' : '' ?>>
-                                <?= h($c['title']) ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                <div>
-                    <label for="filter_lesson_id">Lekcia</label>
-                    <select id="filter_lesson_id" name="lesson_id" <?= $filter_course_id <= 0 ? 'disabled' : '' ?>>
-                        <option value="0">Všetky lekcie</option>
-                        <?php foreach ($allLessons as $l): ?>
-                            <option value="<?= (int)$l['id'] ?>" <?= $filter_lesson_id === (int)$l['id'] ? 'selected' : '' ?>>
-                                <?= h($l['title']) ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
+    <form method="get" style="margin-bottom:24px;padding:16px;background:#020617;border-radius:12px;border:1px solid #1e293b">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:12px">
+            <div>
+                <label for="filter_course_id" style="display:block;margin-bottom:6px;font-size:13px;color:#cbd5e1">Kurz</label>
+                <select id="filter_course_id" name="course_id" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid #1e293b;background:#0b1220;color:#e5e7eb;font-size:13px">
+                    <option value="0">Všetky kurzy</option>
+                    <?php foreach ($allCourses as $c): ?>
+                        <option value="<?= (int)$c['id'] ?>" <?= $filter_course_id === (int)$c['id'] ? 'selected' : '' ?>>
+                            <?= h($c['title']) ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
             </div>
-            <div class="form-actions">
-                <button type="submit" class="btn">
-                    Filtrovať
-                </button>
-                <a href="dashboard.php" class="btn btn-secondary">
-                    Zrušiť filtre
-                </a>
+            <div>
+                <label for="filter_lesson_id" style="display:block;margin-bottom:6px;font-size:13px;color:#cbd5e1">Lekcia</label>
+                <select id="filter_lesson_id" name="lesson_id" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid #1e293b;background:#0b1220;color:#e5e7eb;font-size:13px" <?= $filter_course_id <= 0 ? 'disabled' : '' ?>>
+                    <option value="0">Všetky lekcie</option>
+                    <?php foreach ($allLessons as $l): ?>
+                        <option value="<?= (int)$l['id'] ?>" <?= $filter_lesson_id === (int)$l['id'] ? 'selected' : '' ?>>
+                            <?= h($l['title']) ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
             </div>
-        </form>
+        </div>
+        <div style="display:flex;gap:8px">
+            <button type="submit" style="padding:8px 16px;background:#38bdf8;color:#020617;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px">
+                Filtrovať
+            </button>
+            <a href="dashboard.php" style="padding:8px 16px;background:#475569;color:#e5e7eb;border:none;border-radius:8px;text-decoration:none;font-size:13px;display:inline-block">
+                Zrušiť filtre
+            </a>
+        </div>
+    </form>
 
-        <script>
-            document.getElementById('filter_course_id').addEventListener('change', function() {
-                const lessonSelect = document.getElementById('filter_lesson_id');
-                const courseId = this.value;
-
-                if (courseId > 0) {
-                    const url = new URL(window.location.href);
-                    url.searchParams.set('course_id', courseId);
-                    url.searchParams.delete('lesson_id');
-                    window.location.href = url.toString();
-                } else {
-                    lessonSelect.disabled = true;
-                    lessonSelect.value = '0';
-                }
-            });
-        </script>
+    <script>
+        // Обновляем список уроков при изменении курса
+        document.getElementById('filter_course_id').addEventListener('change', function() {
+            const lessonSelect = document.getElementById('filter_lesson_id');
+            const courseId = this.value;
+            
+            if (courseId > 0) {
+                // Перезагружаем страницу с выбранным курсом для загрузки уроков
+                const url = new URL(window.location.href);
+                url.searchParams.set('course_id', courseId);
+                url.searchParams.delete('lesson_id'); // Сбрасываем урок при смене курса
+                window.location.href = url.toString();
+            } else {
+                lessonSelect.disabled = true;
+                lessonSelect.value = '0';
+            }
+        });
+    </script>
     <?php endif; ?>
 
     <?php if (empty($results)): ?>
@@ -244,7 +244,7 @@ function h(string $value): string {
             prejsť lekciu a vyplniť test.
         </p>
     <?php else: ?>
-        <table class="table">
+        <table>
             <thead>
             <tr>
                 <th>Dátum</th>
@@ -271,74 +271,6 @@ function h(string $value): string {
                     <td class="<?= $ok ? 'score-good' : 'score-bad' ?>">
                         <?= (int)$row['score_pct'] ?> %
                     </td>
-                </tr>
-            <?php endforeach; ?>
-            </tbody>
-        </table>
-    <?php endif; ?>
-
-    <?php
-    // Kódové úlohy – posledné pokusy študenta
-    $codeStmt = $pdo->prepare('
-        SELECT
-            r.id,
-            r.passed,
-            r.manual_score,
-            r.created_at,
-            ct.title AS task_title,
-            l.title  AS lesson_title,
-            c.title  AS course_title
-        FROM code_task_results r
-        JOIN code_tasks ct ON r.code_task_id = ct.id
-        JOIN lessons l ON ct.lesson_id = l.id
-        JOIN courses c ON l.course_id = c.id
-        WHERE r.user_id = :uid
-        ORDER BY r.created_at DESC
-        LIMIT 20
-    ');
-    $codeStmt->execute(['uid' => $userId]);
-    $codeResults = $codeStmt->fetchAll(PDO::FETCH_ASSOC);
-    ?>
-
-    <h2 class="mt-20">Moje kódové úlohy</h2>
-
-    <?php if (empty($codeResults)): ?>
-        <p class="empty">
-            Zatiaľ si neskúšal žiadne kódové úlohy.
-        </p>
-    <?php else: ?>
-        <table class="table mt-8">
-            <thead>
-            <tr>
-                <th>Dátum</th>
-                <th>Kurz</th>
-                <th>Lekcia</th>
-                <th>Úloha</th>
-                <th>Stav</th>
-            </tr>
-            </thead>
-            <tbody>
-            <?php foreach ($codeResults as $cr): ?>
-                <?php
-                $status = 'Nesprávne';
-                $class  = 'score-bad';
-                if ($cr['manual_score'] === '1' || $cr['manual_score'] === 1) {
-                    $status = 'Správne (učiteľ schválil)';
-                    $class  = 'score-good';
-                } elseif ($cr['manual_score'] === '0' || $cr['manual_score'] === 0) {
-                    $status = 'Nesprávne (učiteľ zamietol)';
-                    $class  = 'score-bad';
-                } elseif ((int)$cr['passed'] === 1) {
-                    $status = 'Správne (automaticky)';
-                    $class  = 'score-good';
-                }
-                ?>
-                <tr>
-                    <td><?= h($cr['created_at']) ?></td>
-                    <td><?= h($cr['course_title']) ?></td>
-                    <td><?= h($cr['lesson_title']) ?></td>
-                    <td><?= h($cr['task_title']) ?></td>
-                    <td class="<?= $class ?>"><?= h($status) ?></td>
                 </tr>
             <?php endforeach; ?>
             </tbody>

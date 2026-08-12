@@ -1,5 +1,5 @@
 <?php
-//Stránka jedného kurzu
+// course.php — stránka jedného kurzu
 
 $pdo = require dirname(__FILE__) . '/config.php';
 require dirname(__FILE__) . '/auth.php';
@@ -55,21 +55,149 @@ try {
 <head>
     <meta charset="UTF-8">
     <title><?= htmlspecialchars($course['title'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?> – E-Learn</title>
-    <link rel="stylesheet" href="styles.css">
-    <script src="theme.js" defer></script>
+    <style>
+        body {
+            margin: 0;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: #050b17;
+            color: #e5e9f0;
+        }
+        header {
+            background: #0b1020;
+            padding: 16px 40px;
+            border-bottom: 1px solid #1f2435;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .back {
+            font-size: 13px;
+        }
+        .back a {
+            color: #9ca3af;
+            text-decoration: none;
+        }
+        .back a:hover {
+            color: #ffffff;
+        }
+        header h1 {
+            margin: 0;
+            font-size: 22px;
+        }
+        main {
+            max-width: 900px;
+            margin: 32px auto 80px;
+            padding: 0 16px;
+        }
+        .course-image-header {
+            width: 100%;
+            max-height: 300px;
+            object-fit: cover;
+            border-radius: 12px;
+            margin-bottom: 24px;
+            border: 1px solid #1f2435;
+        }
+        .course-image-placeholder {
+            width: 100%;
+            height: 200px;
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 64px;
+            margin-bottom: 24px;
+            border: 1px solid #1f2435;
+        }
+        .course-description {
+            font-size: 15px;
+            line-height: 1.6;
+            color: #e5e9f0;
+            margin-bottom: 24px;
+        }
+        .course-meta {
+            font-size: 13px;
+            color: #9ca3af;
+            margin-bottom: 16px;
+        }
+        h2 {
+            font-size: 20px;
+            margin-top: 32px;
+            margin-bottom: 16px;
+        }
+        .lessons-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .lesson-item {
+            background: #0b1020;
+            border-radius: 10px;
+            padding: 12px 16px;
+            border: 1px solid #1f2435;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .lesson-main {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .lesson-title {
+            font-size: 15px;
+            font-weight: 500;
+        }
+        .lesson-meta {
+            font-size: 12px;
+            color: #9ca3af;
+        }
+        .lesson-link a {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 999px;
+            background: #3b82f6;
+            color: white;
+            text-decoration: none;
+            font-size: 13px;
+        }
+        .lesson-link a:hover {
+            background: #2563eb;
+        }
+        .empty {
+            font-size: 14px;
+            color: #9ca3af;
+        }
+        footer {
+            text-align: center;
+            padding: 24px;
+            font-size: 12px;
+            color: #6b7385;
+            border-top: 1px solid #1f2435;
+            background: #050b17;
+        }
+        .error {
+            padding: 12px 16px;
+            border-radius: 8px;
+            background: #451b1b;
+            color: #fecaca;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+    </style>
 </head>
 <body>
-<header class="site-header">
-    <div class="back inline-text-sm">
+<header>
+    <div class="back">
         <a href="index.php">&larr; Späť na zoznam kurzov</a>
     </div>
     <h1><?= htmlspecialchars($course['title'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?></h1>
 </header>
 
-<main class="container">
+<main>
     <?php if (!empty($course['image'])): ?>
-        <img src="<?= htmlspecialchars($course['image'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>"
-             alt="<?= htmlspecialchars($course['title'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>"
+        <img src="<?= htmlspecialchars($course['image'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>" 
+             alt="<?= htmlspecialchars($course['title'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>" 
              class="course-image-header">
     <?php else: ?>
         <div class="course-image-placeholder">📚</div>
@@ -119,7 +247,7 @@ try {
     <?php endif; ?>
 </main>
 
-<footer class="site-footer">
+<footer>
     © 2025 E-Learn. Bakalársky projekt.
 </footer>
 </body>

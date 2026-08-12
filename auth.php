@@ -1,17 +1,10 @@
 <?php
-// Pomocné funkcie pre prihlásenie
+// auth.php – pomocné funkcie pre prihlásenie
 if (session_status() === PHP_SESSION_NONE) {
-    ini_set('session.cookie_httponly', 1);
-    ini_set('session.cookie_samesite', 'Lax');
-    if (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') {
-        ini_set('session.cookie_secure', 1);
-    }
     session_start();
 }
 
-require __DIR__ . '/vendor/autoload.php';
-
-$pdo = $pdo ?? require __DIR__ . '/config.php';
+$pdo = $pdo ?? require dirname(__FILE__) . '/config.php';
 
 function current_user_id(): ?int {
     return $_SESSION['user_id'] ?? null;
@@ -32,10 +25,14 @@ function require_login(): void {
     }
 }
 function login_user($userId, $userName) {
+    // Очищаем все данные сессии перед новым логином
+    // Это предотвращает конфликты при логине в разных вкладках
     $_SESSION = [];
-
+    
+    // Регенерируем ID сессии для безопасности
     session_regenerate_id(true);
-
+    
+    // Устанавливаем новые данные пользователя
     $_SESSION['user_id'] = (int)$userId;
     $_SESSION['user_name'] = (string)$userName;
 }
@@ -74,16 +71,21 @@ function current_user_student_teacher_id(): ?int {
 }
 
 function get_user_teacher_id($pdo, $userId): ?int {
-    $stmt = $pdo->prepare('SELECT id FROM users WHERE id = :id AND role = "teacher" LIMIT 1');
-    $stmt->execute(['id' => $userId]);
-    $row = $stmt->fetch(PDO::FETCH_ASSOC);
-    return $row ? (int)$row['id'] : null;
+    $stmt = $pdo->prepare('SELECT id FROM teachers WHERE user_id = :user_id LIMIT 1');
+    $stmt->execute(['user_id' => $userId]);
+    $teacher = $stmt->fetch(PDO::FETCH_ASSOC);
+    return $teacher ? (int)$teacher['id'] : null;
 }
 
 function get_user_student_teacher_id($pdo, $userId): ?int {
-    $stmt = $pdo->prepare('SELECT teacher_user_id FROM users WHERE id = :id LIMIT 1');
-    $stmt->execute(['id' => $userId]);
-    $row = $stmt->fetch(PDO::FETCH_ASSOC);
-    return !empty($row['teacher_user_id']) ? (int)$row['teacher_user_id'] : null;
+    $stmt = $pdo->prepare('
+        SELECT s.teacher_id 
+        FROM students s 
+        WHERE s.user_id = :user_id 
+        LIMIT 1
+    ');
+    $stmt->execute(['user_id' => $userId]);
+    $student = $stmt->fetch(PDO::FETCH_ASSOC);
+    return $student ? (int)$student['teacher_id'] : null;
 }
 

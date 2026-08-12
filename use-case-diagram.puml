@@ -1,0 +1,52 @@
+@startuml
+
+!define RECTANGLE class
+
+left to right direction
+
+actor Admin
+actor Teacher
+actor Student
+
+rectangle "E-Learn System" {
+    
+    ' Admin use cases
+    usecase UC1 as "Správa používateľov
+    (študenti, učitelia, adminy)"
+    Admin --> UC1
+    Admin --> (Správa kurzov)
+    Admin --> (Správa lekcií)
+    Admin --> (Správa testov)
+    Admin --> (Pohľad na výsledky)
+    Admin --> (Modifikovať vlastné údaje)
+    
+    ' Teacher use cases
+    Teacher --> (Správa vlastných kurzov)
+    Teacher --> (Správa lekcií)
+    Teacher --> (Správa testov)
+    Teacher --> (Pohľad na študentov)
+    Teacher --> (Pohľad na výsledky študentov)
+    Teacher --> (Získať kód učiteľa)
+    Teacher --> (Nahrať obrázok kurzu)
+    Teacher --> (Modifikovať vlastné údaje)
+    
+    ' Student use cases
+    usecase UC2 as "Zaregistrovať sa
+    (s kódom učiteľa)"
+    Student --> UC2
+    Student --> (Prihlásiť sa)
+    Student --> (Prezerať kurzy)
+    Student --> (Prezerať lekcie)
+    Student --> (Napísať testy)
+    Student --> (Pohľad na vlastné výsledky)
+    Student --> (Modifikovať vlastné údaje)
+    Student --> (Odhlásiť sa)
+    
+    ' Include relationships
+    (Správa vlastných kurzov) ..> (Nahrať obrázok kurzu) : <<include>>
+    (Správa lekcií) ..> (Správa testov) : <<include>>
+    (Prezerať lekcie) ..> (Napísať testy) : <<include>>
+    UC2 ..> (Prihlásiť sa) : <<include>>
+}
+
+@enduml

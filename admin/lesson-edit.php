@@ -94,12 +94,27 @@ function h($v){ return htmlspecialchars((string)$v, ENT_QUOTES | ENT_SUBSTITUTE,
 <head>
     <meta charset="UTF-8">
     <title>Upraviť lekciu – Administrácia</title>
-    <link rel="stylesheet" href="../styles.css">
-    <script src="../theme.js" defer></script>
+    <style>
+        body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:#0f172a;color:#e5e7eb}
+        .wrap{max-width:1000px;margin:40px auto;padding:0 16px}
+        .card{background:#020617;border:1px solid #1e293b;border-radius:16px;padding:20px;margin-bottom:14px}
+        .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+        label{display:block;margin:10px 0 6px;color:#cbd5e1;font-size:14px}
+        input,textarea{width:100%;box-sizing:border-box;padding:10px 12px;border-radius:10px;border:1px solid #1e293b;background:#0b1220;color:#e5e7eb}
+        textarea{min-height:200px;resize:vertical;font-family:inherit}
+        .btn{margin-top:12px;background:#38bdf8;color:#020617;border:none;padding:10px 18px;border-radius:999px;font-weight:800;cursor:pointer}
+        .btn:hover{background:#0ea5e9}
+        .btn-secondary{margin-left:8px;background:#475569;color:#e5e7eb}
+        .btn-secondary:hover{background:#64748b}
+        a{color:#e5e7eb;text-decoration:none}
+        a:hover{text-decoration:underline}
+        .muted{color:#9ca3af}
+        .err{margin:10px 0;padding:10px 12px;border-radius:12px;background:rgba(220,38,38,.15);border:1px solid #ef4444;font-size:14px}
+    </style>
 </head>
-<body class="admin-body">
-<div class="admin-wrap">
-    <div class="admin-card">
+<body>
+<div class="wrap">
+    <div class="card">
         <div class="muted"><a href="lessons.php?course_id=<?= (int)$lesson['course_id'] ?>">← Späť na lekcie</a></div>
         <h1>Upraviť lekciu</h1>
         <p class="muted">Kurz: <strong><?= h($lesson['course_title']) ?></strong></p>

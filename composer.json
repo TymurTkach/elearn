@@ -1,6 +1,0 @@
-{
-    "require": {
-        "spomky-labs/otphp": "^11.4",
-        "league/oauth2-google": "^4.2"
-    }
-}

@@ -64,11 +64,130 @@ try {
 <head>
     <meta charset="UTF-8">
     <title>E-Learn – Kurzy</title>
-    <link rel="stylesheet" href="styles.css">
-    <script src="theme.js" defer></script>
+    <style>
+        body {
+            margin: 0;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: #050b17;
+            color: #e5e9f0;
+        }
+        header {
+            background: #0b1020;
+            padding: 16px 40px;
+            border-bottom: 1px solid #1f2435;
+        }
+        header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+        header small {
+            color: #8f9bb3;
+        }
+        .user-nav {
+            margin-top: 12px;
+            font-size: 14px;
+        }
+        .user-nav a {
+            color: #9ca3af;
+            text-decoration: none;
+        }
+        .user-nav a:hover {
+            color: #ffffff;
+            text-decoration: underline;
+        }
+        main {
+            max-width: 960px;
+            margin: 40px auto 80px;
+            padding: 0 16px;
+        }
+        h2 {
+            font-size: 28px;
+            margin-bottom: 24px;
+        }
+        .courses-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 20px;
+        }
+        .course-card {
+            background: #0b1020;
+            border-radius: 12px;
+            padding: 0;
+            border: 1px solid #1f2435;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .course-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.5);
+        }
+        .course-image {
+            width: 100%;
+            height: 180px;
+            object-fit: cover;
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+        }
+        .course-content {
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .course-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+        .course-description {
+            font-size: 14px;
+            color: #a3aec7;
+        }
+        .course-meta {
+            font-size: 12px;
+            color: #6b7385;
+        }
+        .course-link {
+            margin-top: 12px;
+        }
+        .course-link a {
+            display: inline-block;
+            padding: 8px 14px;
+            border-radius: 999px;
+            background: #3b82f6;
+            color: white;
+            text-decoration: none;
+            font-size: 13px;
+        }
+        .course-link a:hover {
+            background: #2563eb;
+        }
+        .empty {
+            margin-top: 40px;
+            text-align: center;
+            color: #8f9bb3;
+        }
+        footer {
+            text-align: center;
+            padding: 24px;
+            font-size: 12px;
+            color: #6b7385;
+            border-top: 1px solid #1f2435;
+            background: #050b17;
+        }
+        .error {
+            padding: 12px 16px;
+            border-radius: 8px;
+            background: #451b1b;
+            color: #fecaca;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+    </style>
 </head>
 <body>
-<header class="site-header">
+<header>
     <h1>E-Learn</h1>
     <small>Jednoduchá platforma pre online vzdelávanie</small>
 
@@ -79,8 +198,6 @@ try {
                 · <a href="admin/index.php">Administrácia</a>
             <?php endif; ?>
             · <a href="dashboard.php">Môj prehľad</a>
-            · <a href="compiler.php">Online kompilátor</a>
-            · <a href="2fa-setup.php">2FA nastavenie</a>
             · <a href="logout.php">Odhlásiť sa</a>
         <?php else: ?>
             <a href="login.php">Prihlásiť sa</a>
@@ -91,7 +208,7 @@ try {
 </header>
 
 
-<main class="container">
+<main>
     <h2>Kurzy</h2>
 
     <?php if ($error): ?>
@@ -109,11 +226,11 @@ try {
             <?php foreach ($courses as $course): ?>
                 <article class="course-card">
                     <?php if (!empty($course['image'])): ?>
-                        <img src="<?= htmlspecialchars($course['image'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>"
-                             alt="<?= htmlspecialchars($course['title'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>"
+                        <img src="<?= htmlspecialchars($course['image'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>" 
+                             alt="<?= htmlspecialchars($course['title'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>" 
                              class="course-image">
                     <?php else: ?>
-                        <div class="course-image">
+                        <div class="course-image" style="display:flex;align-items:center;justify-content:center;color:#475569;font-size:48px;">
                             📚
                         </div>
                     <?php endif; ?>
@@ -139,8 +256,8 @@ try {
     <?php endif; ?>
 </main>
 
-<footer class="site-footer">
-    © 2026 E-Learn. Bakalársky projekt.
+<footer>
+    © 2025 E-Learn. Bakalársky projekt.
 </footer>
 </body>
 </html>

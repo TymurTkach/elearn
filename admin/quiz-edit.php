@@ -3,27 +3,6 @@ $pdo = require dirname(__DIR__) . '/config.php';
 require dirname(__DIR__) . '/auth.php';
 require_login();
 
-function normalize_correct_option_indexes(array $rawValues, int $optionCount): array {
-    $map = ['a' => 0, 'b' => 1, 'c' => 2, 'd' => 3];
-    $normalized = [];
-    foreach ($rawValues as $raw) {
-        $idx = null;
-        if (is_int($raw) || (is_string($raw) && ctype_digit($raw))) {
-            $idx = (int)$raw;
-        } elseif (is_string($raw)) {
-            $key = strtolower(trim($raw));
-            if (isset($map[$key])) {
-                $idx = $map[$key];
-            }
-        }
-        if ($idx !== null && $idx >= 0 && $idx < $optionCount) {
-            $normalized[$idx] = $idx;
-        }
-    }
-    ksort($normalized);
-    return array_values($normalized);
-}
-
 // Učitelia a admini môžu vstúpiť do administrácie
 if (!is_admin() && !is_teacher()) {
     header('Location: ../login.php');
@@ -67,101 +46,53 @@ if (is_teacher()) {
     }
 }
 
-$options = [];
-$correctOptions = [];
-
-if (!empty($quiz['options'])) {
-    $decoded = json_decode($quiz['options'], true);
-    if (is_array($decoded)) {
-        $options = array_filter($decoded, function($v) { return $v !== '' && $v !== null; });
-    }
-}
-
-if (!empty($quiz['correct_options'])) {
-    $decoded = json_decode($quiz['correct_options'], true);
-    if (is_array($decoded)) {
-        $correctOptions = $decoded;
-    }
-}
-
-if (empty($options)) {
-    if ($quiz['option_a']) $options[] = $quiz['option_a'];
-    if ($quiz['option_b']) $options[] = $quiz['option_b'];
-    if ($quiz['option_c']) $options[] = $quiz['option_c'];
-    if ($quiz['option_d']) $options[] = $quiz['option_d'];
-    $options = array_filter($options);
-}
-
-if (empty($correctOptions) && $quiz['correct_option']) {
-    $map = ['a' => 0, 'b' => 1, 'c' => 2, 'd' => 3];
-    if (isset($map[$quiz['correct_option']])) {
-        $correctOptions = [$map[$quiz['correct_option']]];
-    }
-}
-
 $errors = [];
 $question = $quiz['question'];
+$option_a = $quiz['option_a'] ?? '';
+$option_b = $quiz['option_b'] ?? '';
+$option_c = $quiz['option_c'] ?? '';
+$option_d = $quiz['option_d'] ?? '';
+$correct_option = $quiz['correct_option'] ?? '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $question = trim((string)($_POST['question'] ?? ''));
-
-    $options = [];
-    $correctOptions = [];
-
-    if (isset($_POST['options']) && is_array($_POST['options'])) {
-        foreach ($_POST['options'] as $opt) {
-            $opt = trim((string)$opt);
-            if ($opt !== '') {
-                $options[] = $opt;
-            }
-        }
-    }
-
-    if (isset($_POST['correct_options']) && is_array($_POST['correct_options'])) {
-        foreach ($_POST['correct_options'] as $idx) {
-            $idx = (int)$idx;
-            if ($idx >= 0 && $idx < count($options)) {
-                $correctOptions[] = $idx;
-            }
-        }
-    }
+    $option_a = trim((string)($_POST['option_a'] ?? ''));
+    $option_b = trim((string)($_POST['option_b'] ?? ''));
+    $option_c = trim((string)($_POST['option_c'] ?? ''));
+    $option_d = trim((string)($_POST['option_d'] ?? ''));
+    $correct_option = strtolower(trim((string)($_POST['correct_option'] ?? '')));
 
     if ($question === '') {
         $errors[] = 'Otázka nemôže byť prázdna.';
     }
 
-    if (count($options) < 2) {
-        $errors[] = 'Musia byť aspoň dve možnosti odpovede.';
+    if ($option_a === '' || $option_b === '') {
+        $errors[] = 'Musia byť aspoň dve možnosti (A a B).';
     }
 
-    if (count($correctOptions) === 0) {
-        $errors[] = 'Musí byť zvolená aspoň jedna správna odpoveď.';
+    if ($correct_option === '' || !in_array($correct_option, ['a', 'b', 'c', 'd'])) {
+        $errors[] = 'Musí byť zvolená správna odpoveď (a, b, c alebo d).';
+    }
+
+    // Kontrolujeme, že zvolená správna možnosť nie je prázdna
+    $option_field = 'option_' . $correct_option;
+    if ($$option_field === '') {
+        $errors[] = 'Správna odpoveď nemôže byť prázdna.';
     }
 
     if (!$errors) {
-        $optionsJson = json_encode($options, JSON_UNESCAPED_UNICODE);
-        $correctOptionsJson = json_encode($correctOptions, JSON_UNESCAPED_UNICODE);
-
-        $option_a = $options[0] ?? null;
-        $option_b = $options[1] ?? null;
-        $option_c = $options[2] ?? null;
-        $option_d = $options[3] ?? null;
-        $correct_option = count($correctOptions) === 1 ? ['a', 'b', 'c', 'd'][$correctOptions[0]] ?? null : null;
-
         $upd = $pdo->prepare('
             UPDATE quizzes
-            SET question = :question, options = :options, correct_options = :correct_options,
-                option_a = :option_a, option_b = :option_b, option_c = :option_c, option_d = :option_d, correct_option = :correct_option
+            SET question = :question, option_a = :option_a, option_b = :option_b,
+                option_c = :option_c, option_d = :option_d, correct_option = :correct_option
             WHERE id = :id
         ');
         $upd->execute([
             'question' => $question,
-            'options' => $optionsJson,
-            'correct_options' => $correctOptionsJson,
-            'option_a' => $option_a,
-            'option_b' => $option_b,
-            'option_c' => $option_c,
-            'option_d' => $option_d,
+            'option_a' => $option_a ?: null,
+            'option_b' => $option_b ?: null,
+            'option_c' => $option_c ?: null,
+            'option_d' => $option_d ?: null,
             'correct_option' => $correct_option,
             'id' => $quizId,
         ]);
@@ -177,12 +108,27 @@ function h($v){ return htmlspecialchars((string)$v, ENT_QUOTES | ENT_SUBSTITUTE,
 <head>
     <meta charset="UTF-8">
     <title>Upraviť otázku – Administrácia</title>
-    <link rel="stylesheet" href="../styles.css">
-    <script src="../theme.js" defer></script>
+    <style>
+        body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:#0f172a;color:#e5e7eb}
+        .wrap{max-width:1000px;margin:40px auto;padding:0 16px}
+        .card{background:#020617;border:1px solid #1e293b;border-radius:16px;padding:20px;margin-bottom:14px}
+        .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+        label{display:block;margin:10px 0 6px;color:#cbd5e1;font-size:14px}
+        input,textarea,select{width:100%;box-sizing:border-box;padding:10px 12px;border-radius:10px;border:1px solid #1e293b;background:#0b1220;color:#e5e7eb}
+        textarea{min-height:80px;resize:vertical;font-family:inherit}
+        .btn{margin-top:12px;background:#38bdf8;color:#020617;border:none;padding:10px 18px;border-radius:999px;font-weight:800;cursor:pointer}
+        .btn:hover{background:#0ea5e9}
+        .btn-secondary{margin-left:8px;background:#475569;color:#e5e7eb}
+        .btn-secondary:hover{background:#64748b}
+        a{color:#e5e7eb;text-decoration:none}
+        a:hover{text-decoration:underline}
+        .muted{color:#9ca3af}
+        .err{margin:10px 0;padding:10px 12px;border-radius:12px;background:rgba(220,38,38,.15);border:1px solid #ef4444;font-size:14px}
+    </style>
 </head>
-<body class="admin-body">
-<div class="admin-wrap">
-    <div class="admin-card">
+<body>
+<div class="wrap">
+    <div class="card">
         <div class="muted"><a href="quizzes.php?lesson_id=<?= (int)$quiz['lesson_id'] ?>">← Späť na otázky</a></div>
         <h1>Upraviť otázku</h1>
         <p class="muted">Lekcia: <strong><?= h($quiz['lesson_title']) ?></strong> (<?= h($quiz['course_title']) ?>)</p>
@@ -193,148 +139,46 @@ function h($v){ return htmlspecialchars((string)$v, ENT_QUOTES | ENT_SUBSTITUTE,
             </div>
         <?php endif; ?>
 
-        <form method="post" autocomplete="off" id="quiz-form">
-            <label for="question">Otázka *</label>
+        <form method="post" autocomplete="off">
+            <label for="question">Otázka</label>
             <textarea id="question" name="question" required><?= h($question) ?></textarea>
 
-            <div style="margin: 20px 0;">
-                <label>Možnosti odpovede *</label>
-                <small class="muted inline-text-sm">Pridajte aspoň 2 možnosti. Označte správne odpovede nižšie.</small>
-                <div id="options-container">
-                    <?php foreach ($options as $index => $opt): ?>
-                        <div class="option-row" data-index="<?= $index ?>">
-                            <input type="text" name="options[]" value="<?= h($opt) ?>" placeholder="Možnosť <?= $index + 1 ?>" <?= $index < 2 ? 'required' : '' ?>>
-                            <button type="button" class="btn-remove-option" onclick="removeOption(this)" <?= count($options) <= 2 ? 'style="display: none;"' : '' ?>>Odstrániť</button>
-                        </div>
-                    <?php endforeach; ?>
+            <div class="row">
+                <div>
+                    <label for="option_a">Možnosť A *</label>
+                    <input id="option_a" name="option_a" value="<?= h($option_a) ?>" required>
                 </div>
-                <button type="button" class="btn btn-secondary" onclick="addOption()" style="margin-top: 10px;">+ Pridať možnosť</button>
+                <div>
+                    <label for="option_b">Možnosť B *</label>
+                    <input id="option_b" name="option_b" value="<?= h($option_b) ?>" required>
+                </div>
             </div>
 
-            <div style="margin: 20px 0;">
-                <label>Správne odpovede *</label>
-                <small class="muted inline-text-sm">Označte všetky správne odpovede (môže byť viacero).</small>
-                <div id="correct-options-container">
+            <div class="row">
+                <div>
+                    <label for="option_c">Možnosť C (voliteľné)</label>
+                    <input id="option_c" name="option_c" value="<?= h($option_c) ?>">
+                </div>
+                <div>
+                    <label for="option_d">Možnosť D (voliteľné)</label>
+                    <input id="option_d" name="option_d" value="<?= h($option_d) ?>">
                 </div>
             </div>
+
+            <label for="correct_option">Správna odpoveď *</label>
+            <select id="correct_option" name="correct_option" required>
+                <option value="">-- Vyberte --</option>
+                <option value="a" <?= $correct_option === 'a' ? 'selected' : '' ?>>A</option>
+                <option value="b" <?= $correct_option === 'b' ? 'selected' : '' ?>>B</option>
+                <option value="c" <?= $correct_option === 'c' ? 'selected' : '' ?>>C</option>
+                <option value="d" <?= $correct_option === 'd' ? 'selected' : '' ?>>D</option>
+            </select>
 
             <button class="btn" type="submit">Uložiť zmeny</button>
             <a href="quizzes.php?lesson_id=<?= (int)$quiz['lesson_id'] ?>" class="btn btn-secondary">Zrušiť</a>
         </form>
     </div>
 </div>
-
-<script>
-    let optionCount = <?= count($options) ?>;
-    const initialCorrectOptions = <?= json_encode($correctOptions, JSON_UNESCAPED_UNICODE) ?>;
-
-    function addOption() {
-        const container = document.getElementById('options-container');
-        const newRow = document.createElement('div');
-        newRow.className = 'option-row';
-        newRow.setAttribute('data-index', optionCount);
-        newRow.innerHTML = `
-        <input type="text" name="options[]" placeholder="Možnosť ${optionCount + 1}">
-        <button type="button" class="btn-remove-option" onclick="removeOption(this)">Odstrániť</button>
-    `;
-        container.appendChild(newRow);
-        optionCount++;
-        updateCorrectOptions();
-        updateRemoveButtons();
-    }
-
-    function removeOption(btn) {
-        const row = btn.closest('.option-row');
-        const container = document.getElementById('options-container');
-        if (container.children.length > 2) {
-            row.remove();
-            updateCorrectOptions();
-            updateRemoveButtons();
-        }
-    }
-
-    function updateRemoveButtons() {
-        const rows = document.querySelectorAll('.option-row');
-        rows.forEach((row, index) => {
-            const btn = row.querySelector('.btn-remove-option');
-            if (rows.length > 2) {
-                btn.style.display = 'inline-block';
-            } else {
-                btn.style.display = 'none';
-            }
-        });
-    }
-
-    function updateCorrectOptions() {
-        const container = document.getElementById('correct-options-container');
-        const options = document.querySelectorAll('#options-container input[type="text"]');
-        container.innerHTML = '';
-
-        options.forEach((input, index) => {
-            if (input.value.trim() !== '') {
-                const label = document.createElement('label');
-                label.style.display = 'flex';
-                label.style.alignItems = 'center';
-                label.style.marginBottom = '8px';
-                // Проверяем, был ли этот вариант правильным при загрузке страницы
-                const wasChecked = initialCorrectOptions && initialCorrectOptions.includes(index);
-                const checkbox = document.createElement('input');
-                checkbox.type = 'checkbox';
-                checkbox.name = 'correct_options[]';
-                checkbox.value = index;
-                checkbox.checked = wasChecked;
-                checkbox.style.width = 'auto';
-                checkbox.style.marginRight = '8px';
-                const span = document.createElement('span');
-                span.textContent = String.fromCharCode(65 + index) + ': ' + (input.value || `Možnosť ${index + 1}`);
-                label.appendChild(checkbox);
-                label.appendChild(span);
-                container.appendChild(label);
-            }
-        });
-    }
-
-    document.getElementById('options-container').addEventListener('input', function(e) {
-        if (e.target.tagName === 'INPUT') {
-            updateCorrectOptions();
-        }
-    });
-
-    document.addEventListener('DOMContentLoaded', function() {
-        updateCorrectOptions();
-        updateRemoveButtons();
-    });
-</script>
-
-<style>
-    .option-row {
-        display: flex;
-        gap: 10px;
-        margin-bottom: 10px;
-        align-items: center;
-    }
-
-    .option-row input {
-        flex: 1;
-    }
-
-    .btn-remove-option {
-        padding: 8px 12px;
-        background: rgba(220, 38, 38, 0.1);
-        border: 1px solid #ef4444;
-        color: #ef4444;
-        border-radius: 8px;
-        cursor: pointer;
-        font-size: 14px;
-    }
-
-    .btn-remove-option:hover {
-        background: rgba(220, 38, 38, 0.2);
-    }
-
-    #correct-options-container label {
-        cursor: pointer;
-    }
-</style>
 </body>
 </html>
+

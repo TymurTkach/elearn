@@ -3,11 +3,13 @@ $pdo = require dirname(__DIR__) . '/config.php';
 require dirname(__DIR__) . '/auth.php';
 require_login();
 
+// Учителя и админы могут заходить в админку
 if (!is_admin() && !is_teacher()) {
     header('Location: ../login.php');
     exit;
 }
 
+// Načítame používateľov s ohľadom na práva prístupu
 if (is_admin()) {
     // Admin vidí všetkých používateľov
     $stmt = $pdo->query('
@@ -27,11 +29,11 @@ if (is_admin()) {
     }
 
     if ($teacherId) {
-        // Študenti učiteľa sú teraz používatelia s teacher_user_id = id učiteľa
         $stmt = $pdo->prepare('
             SELECT u.id, u.name, u.email, u.role, u.created_at
             FROM users u
-            WHERE u.teacher_user_id = :teacher_id
+            JOIN students s ON u.id = s.user_id
+            WHERE s.teacher_id = :teacher_id
             ORDER BY u.created_at DESC
         ');
         $stmt->execute(['teacher_id' => $teacherId]);
@@ -48,17 +50,29 @@ function h($v){ return htmlspecialchars((string)$v, ENT_QUOTES | ENT_SUBSTITUTE,
 <head>
     <meta charset="UTF-8">
     <title>Používatelia – Administrácia</title>
-    <link rel="stylesheet" href="../styles.css">
-    <script src="../theme.js" defer></script>
+    <style>
+        body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:#0f172a;color:#e5e7eb}
+        .wrap{max-width:1000px;margin:40px auto;padding:0 16px}
+        .card{background:#020617;border:1px solid #1e293b;border-radius:16px;padding:20px;margin-bottom:14px}
+        a{color:#e5e7eb;text-decoration:none}
+        a:hover{text-decoration:underline}
+        .muted{color:#9ca3af}
+        table{width:100%;border-collapse:collapse}
+        th,td{padding:10px;border-bottom:1px solid #1e293b;text-align:left;vertical-align:top}
+        th{color:#cbd5e1;font-size:13px}
+        .role-admin{color:#38bdf8;font-weight:600}
+        .role-student{color:#9ca3af}
+        .pill{display:inline-block;padding:4px 10px;border-radius:999px;border:1px solid #1e293b;background:#0b1220;font-size:12px;color:#cbd5e1}
+    </style>
 </head>
-<body class="admin-body">
-<div class="admin-wrap">
-    <div class="admin-card">
+<body>
+<div class="wrap">
+    <div class="card">
         <div class="muted"><a href="index.php">← Administrácia</a></div>
         <h1>Používatelia</h1>
         <p class="muted">Zoznam všetkých registrovaných používateľov.</p>
 
-        <table class="admin-table mt-20">
+        <table style="margin-top:20px">
             <thead>
             <tr>
                 <th>ID</th>
@@ -90,7 +104,7 @@ function h($v){ return htmlspecialchars((string)$v, ENT_QUOTES | ENT_SUBSTITUTE,
             <?php endif; ?>
             </tbody>
         </table>
-        <div class="muted mt-16">
+        <div style="margin-top:16px" class="muted">
             Celkom: <span class="pill"><?= count($users) ?></span> používateľov
         </div>
     </div>

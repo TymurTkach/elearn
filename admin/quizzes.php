@@ -3,28 +3,6 @@ $pdo = require dirname(__DIR__) . '/config.php';
 require dirname(__DIR__) . '/auth.php';
 require_login();
 
-
-function normalize_correct_option_indexes(array $rawValues, int $optionCount): array {
-    $map = ['a' => 0, 'b' => 1, 'c' => 2, 'd' => 3];
-    $normalized = [];
-    foreach ($rawValues as $raw) {
-        $idx = null;
-        if (is_int($raw) || (is_string($raw) && ctype_digit($raw))) {
-            $idx = (int)$raw;
-        } elseif (is_string($raw)) {
-            $key = strtolower(trim($raw));
-            if (isset($map[$key])) {
-                $idx = $map[$key];
-            }
-        }
-        if ($idx !== null && $idx >= 0 && $idx < $optionCount) {
-            $normalized[$idx] = $idx;
-        }
-    }
-    ksort($normalized);
-    return array_values($normalized);
-}
-
 // Učitelia a admini môžu vstúpiť do administrácie
 if (!is_admin() && !is_teacher()) {
     header('Location: ../login.php');
@@ -67,90 +45,15 @@ if (is_teacher()) {
     }
 }
 
-if (isset($_GET['delete'])) {
-    $deleteId = (int)$_GET['delete'];
-    if ($deleteId > 0) {
-        $checkStmt = $pdo->prepare('SELECT id FROM quizzes WHERE id = :id AND lesson_id = :lesson_id');
-        $checkStmt->execute(['id' => $deleteId, 'lesson_id' => $lessonId]);
-        $quizToDelete = $checkStmt->fetch(PDO::FETCH_ASSOC);
-
-        if ($quizToDelete) {
-            try {
-                $deleteStmt = $pdo->prepare('DELETE FROM quizzes WHERE id = :id');
-                $deleteStmt->execute(['id' => $deleteId]);
-
-                header('Location: quizzes.php?lesson_id=' . $lessonId . '&deleted=1');
-                exit;
-            } catch (Exception $e) {
-            }
-        }
-    }
-}
-
 // Načítame otázky
-try {
-    $stmt = $pdo->prepare('
-        SELECT id, question, options, correct_options, option_a, option_b, option_c, option_d, correct_option
-        FROM quizzes
-        WHERE lesson_id = :lesson_id
-        ORDER BY id ASC
-    ');
-    $stmt->execute(['lesson_id' => $lessonId]);
-    $quizzesRaw = $stmt->fetchAll(PDO::FETCH_ASSOC);
-} catch (PDOException $e) {
-    $stmt = $pdo->prepare('
-        SELECT id, question, option_a, option_b, option_c, option_d, correct_option
-        FROM quizzes
-        WHERE lesson_id = :lesson_id
-        ORDER BY id ASC
-    ');
-    $stmt->execute(['lesson_id' => $lessonId]);
-    $quizzesRaw = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    foreach ($quizzesRaw as &$q) {
-        $q['options'] = null;
-        $q['correct_options'] = null;
-    }
-    unset($q);
-}
-
-$quizzes = [];
-foreach ($quizzesRaw as $q) {
-    $options = [];
-    $correctOptions = [];
-
-    if (!empty($q['options']) && $q['options'] !== null) {
-        $decoded = json_decode($q['options'], true);
-        if (is_array($decoded)) {
-            $options = array_filter($decoded, function($v) { return $v !== '' && $v !== null; });
-        }
-    }
-
-    if (!empty($q['correct_options']) && $q['correct_options'] !== null) {
-        $decoded = json_decode($q['correct_options'], true);
-        if (is_array($decoded)) {
-            $correctOptions = $decoded;
-        }
-    }
-    
-    if (empty($options)) {
-        if ($q['option_a']) $options[] = $q['option_a'];
-        if ($q['option_b']) $options[] = $q['option_b'];
-        if ($q['option_c']) $options[] = $q['option_c'];
-        if ($q['option_d']) $options[] = $q['option_d'];
-        $options = array_filter($options);
-    }
-
-    if (empty($correctOptions) && $q['correct_option']) {
-        $map = ['a' => 0, 'b' => 1, 'c' => 2, 'd' => 3];
-        if (isset($map[$q['correct_option']])) {
-            $correctOptions = [$map[$q['correct_option']]];
-        }
-    }
-
-    $q['options'] = array_values($options);
-    $q['correct_options'] = $correctOptions;
-    $quizzes[] = $q;
-}
+$stmt = $pdo->prepare('
+    SELECT id, question, option_a, option_b, option_c, option_d, correct_option
+    FROM quizzes
+    WHERE lesson_id = :lesson_id
+    ORDER BY id ASC
+');
+$stmt->execute(['lesson_id' => $lessonId]);
+$quizzes = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 function h($v){ return htmlspecialchars((string)$v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); }
 ?>
@@ -159,25 +62,32 @@ function h($v){ return htmlspecialchars((string)$v, ENT_QUOTES | ENT_SUBSTITUTE,
 <head>
     <meta charset="UTF-8">
     <title>Otázky – Administrácia</title>
-    <link rel="stylesheet" href="../styles.css">
-    <script src="../theme.js" defer></script>
+    <style>
+        body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:#0f172a;color:#e5e7eb}
+        .wrap{max-width:1000px;margin:40px auto;padding:0 16px}
+        .card{background:#020617;border:1px solid #1e293b;border-radius:16px;padding:20px;margin-bottom:14px}
+        a{color:#e5e7eb;text-decoration:none}
+        a:hover{text-decoration:underline}
+        .muted{color:#9ca3af}
+        table{width:100%;border-collapse:collapse}
+        th,td{padding:10px;border-bottom:1px solid #1e293b;text-align:left;vertical-align:top}
+        th{color:#cbd5e1;font-size:13px}
+        .actions a{margin-right:10px}
+        .btn{display:inline-block;margin-top:12px;background:#38bdf8;color:#020617;border:none;padding:10px 18px;border-radius:999px;font-weight:800;cursor:pointer;text-decoration:none}
+        .btn:hover{background:#0ea5e9}
+        .correct{color:#22c55e;font-weight:600}
+    </style>
 </head>
-<body class="admin-body">
-<div class="admin-wrap">
-    <div class="admin-card">
+<body>
+<div class="wrap">
+    <div class="card">
         <div class="muted"><a href="lessons.php?course_id=<?= (int)$lesson['course_id'] ?>">← Späť na lekcie</a></div>
         <h1>Otázky: <?= h($lesson['title']) ?></h1>
         <p class="muted">Kurz: <strong><?= h($lesson['course_title']) ?></strong></p>
 
-        <?php if (isset($_GET['deleted'])): ?>
-            <div class="success">
-                Otázka bola úspešne odstránená.
-            </div>
-        <?php endif; ?>
-
         <a href="quiz-create.php?lesson_id=<?= (int)$lessonId ?>" class="btn">Pridať novú otázku</a>
 
-        <table class="admin-table mt-20">
+        <table style="margin-top:20px">
             <thead>
             <tr>
                 <th>ID</th>
@@ -197,43 +107,19 @@ function h($v){ return htmlspecialchars((string)$v, ENT_QUOTES | ENT_SUBSTITUTE,
                     <tr>
                         <td><?= (int)$q['id'] ?></td>
                         <td><strong><?= h($q['question']) ?></strong></td>
-                        <td class="muted inline-text-sm">
+                        <td class="muted" style="font-size:12px">
                             <?php
-                            $options = $q['options'] ?? [];
-                            $displayOptions = [];
-                            if (!empty($options)) {
-                                foreach ($options as $idx => $opt) {
-                                    $letter = chr(65 + (int)$idx);
-                                    $displayOptions[] = $letter . ': ' . h($opt);
-                                }
-                                echo implode('<br>', $displayOptions);
-                            } else {
-                                echo '-';
-                            }
+                            $options = [];
+                            if ($q['option_a']) $options[] = 'A: ' . h($q['option_a']);
+                            if ($q['option_b']) $options[] = 'B: ' . h($q['option_b']);
+                            if ($q['option_c']) $options[] = 'C: ' . h($q['option_c']);
+                            if ($q['option_d']) $options[] = 'D: ' . h($q['option_d']);
+                            echo implode('<br>', $options);
                             ?>
                         </td>
-                        <td class="correct">
-                            <?php
-                            $correctOptions = $q['correct_options'] ?? [];
-                            $displayCorrect = [];
-                            if (!empty($correctOptions)) {
-                                foreach ($correctOptions as $idx) {
-                                    $letter = chr(65 + (int)$idx);
-                                    $displayCorrect[] = $letter;
-                                }
-                                echo implode(', ', $displayCorrect);
-                            } else {
-                                echo '-';
-                            }
-                            ?>
-                        </td>
+                        <td class="correct"><?= strtoupper($q['correct_option'] ?? '-') ?></td>
                         <td class="actions">
-                            <?php
-                            $quiz = $q;
-                            $editUrl = "quiz-edit.php?id=" . (int)$quiz['id'] . "&lesson_id=" . (int)$lessonId;
-                            ?>
-                            <a href="<?= $editUrl ?>">Upraviť</a>
-                            <a href="quizzes.php?lesson_id=<?= (int)$lessonId ?>&delete=<?= (int)$q['id'] ?>" class="delete-link" onclick="return confirm('Naozaj chcete odstrániť túto otázku?');">Zmazať</a>
+                            <a href="quiz-edit.php?id=<?= (int)$q['id'] ?>">Upraviť</a>
                         </td>
                     </tr>
                 <?php endforeach; ?>

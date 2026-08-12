@@ -3,6 +3,7 @@ $pdo = require dirname(__DIR__) . '/config.php';
 require dirname(__DIR__) . '/auth.php';
 require_login();
 
+// Учителя и админы могут заходить в админку
 if (!is_admin() && !is_teacher()) {
     header('Location: ../login.php');
     exit;
@@ -39,43 +40,7 @@ if (is_teacher()) {
     }
 }
 
-if (isset($_GET['delete'])) {
-    $deleteId = (int)$_GET['delete'];
-    if ($deleteId > 0) {
-        $checkStmt = $pdo->prepare('SELECT id FROM lessons WHERE id = :id AND course_id = :course_id');
-        $checkStmt->execute(['id' => $deleteId, 'course_id' => $courseId]);
-        $lessonToDelete = $checkStmt->fetch(PDO::FETCH_ASSOC);
-
-        if ($lessonToDelete) {
-            $pdo->beginTransaction();
-            try {
-                $resultsStmt = $pdo->prepare('DELETE FROM results WHERE lesson_id = :lesson_id');
-                $resultsStmt->execute(['lesson_id' => $deleteId]);
-
-                $quizzesStmt = $pdo->prepare('DELETE FROM quizzes WHERE lesson_id = :lesson_id');
-                $quizzesStmt->execute(['lesson_id' => $deleteId]);
-
-                try {
-                    $pdo->prepare('DELETE FROM code_task_results WHERE code_task_id IN (SELECT id FROM code_tasks WHERE lesson_id = :lesson_id)')
-                        ->execute(['lesson_id' => $deleteId]);
-                } catch (PDOException $e) { /* code_task_results alebo code_tasks môžu neexistovať */ }
-                try {
-                    $pdo->prepare('DELETE FROM code_tasks WHERE lesson_id = :lesson_id')->execute(['lesson_id' => $deleteId]);
-                } catch (PDOException $e) { /* tabuľka code_tasks môže neexistovať */ }
-
-                $deleteStmt = $pdo->prepare('DELETE FROM lessons WHERE id = :id');
-                $deleteStmt->execute(['id' => $deleteId]);
-
-                $pdo->commit();
-                header('Location: lessons.php?course_id=' . $courseId . '&deleted=1');
-                exit;
-            } catch (Exception $e) {
-                $pdo->rollBack();
-            }
-        }
-    }
-}
-
+// Načítame lekcie
 $stmt = $pdo->prepare('
     SELECT id, title, order_index, estimated_min, created_at
     FROM lessons
@@ -92,25 +57,31 @@ function h($v){ return htmlspecialchars((string)$v, ENT_QUOTES | ENT_SUBSTITUTE,
 <head>
     <meta charset="UTF-8">
     <title>Lekcie – Administrácia</title>
-    <link rel="stylesheet" href="../styles.css">
-    <script src="../theme.js" defer></script>
+    <style>
+        body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:#0f172a;color:#e5e7eb}
+        .wrap{max-width:1000px;margin:40px auto;padding:0 16px}
+        .card{background:#020617;border:1px solid #1e293b;border-radius:16px;padding:20px;margin-bottom:14px}
+        a{color:#e5e7eb;text-decoration:none}
+        a:hover{text-decoration:underline}
+        .muted{color:#9ca3af}
+        table{width:100%;border-collapse:collapse}
+        th,td{padding:10px;border-bottom:1px solid #1e293b;text-align:left;vertical-align:top}
+        th{color:#cbd5e1;font-size:13px}
+        .actions a{margin-right:10px}
+        .btn{display:inline-block;margin-top:12px;background:#38bdf8;color:#020617;border:none;padding:10px 18px;border-radius:999px;font-weight:800;cursor:pointer;text-decoration:none}
+        .btn:hover{background:#0ea5e9}
+    </style>
 </head>
-<body class="admin-body">
-<div class="admin-wrap">
-    <div class="admin-card">
+<body>
+<div class="wrap">
+    <div class="card">
         <div class="muted"><a href="courses.php">← Kurzy</a></div>
         <h1>Lekcie: <?= h($course['title']) ?></h1>
         <p class="muted">Správa lekcií pre tento kurz.</p>
 
-        <?php if (isset($_GET['deleted'])): ?>
-            <div class="success">
-                Lekcia bola úspešne odstránená.
-            </div>
-        <?php endif; ?>
-
         <a href="lesson-create.php?course_id=<?= (int)$courseId ?>" class="btn">Pridať novú lekciu</a>
 
-        <table class="admin-table mt-20">
+        <table style="margin-top:20px">
             <thead>
             <tr>
                 <th>Poradie</th>
@@ -135,8 +106,6 @@ function h($v){ return htmlspecialchars((string)$v, ENT_QUOTES | ENT_SUBSTITUTE,
                         <td class="actions">
                             <a href="lesson-edit.php?id=<?= (int)$l['id'] ?>">Upraviť</a>
                             <a href="quizzes.php?lesson_id=<?= (int)$l['id'] ?>">Otázky</a>
-                            <a href="code-tasks.php?lesson_id=<?= (int)$l['id'] ?>">Kódové úlohy</a>
-                            <a href="lessons.php?course_id=<?= (int)$courseId ?>&delete=<?= (int)$l['id'] ?>" class="delete-link" onclick="return confirm('Naozaj chcete odstrániť túto lekciu? Táto akcia je nevratná a odstráni všetky otázky a kódové úlohy.');">Zmazať</a>
                         </td>
                     </tr>
                 <?php endforeach; ?>

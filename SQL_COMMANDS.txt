@@ -1,0 +1,11 @@
+-- SQL команды для добавления поддержки изображений курсов
+-- Выполните эти команды в консоли MySQL/MariaDB
+
+-- 1. Добавить поле image в таблицу courses
+ALTER TABLE `courses` 
+ADD COLUMN `image` VARCHAR(255) DEFAULT NULL 
+AFTER `description`;
+
+-- Проверка: посмотреть структуру таблицы
+-- DESCRIBE courses;
+
